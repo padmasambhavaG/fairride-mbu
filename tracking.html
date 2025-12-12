@@ -241,19 +241,26 @@
                 toastTimeout = setTimeout(() => dom.toast.el.classList.remove('visible'), 4000);
             }
 
-            function populateRideDetails() {
-                const driver = getRandomDriver();
-                
-                const pickup = localStorage.getItem('lastPickup') || 'MBU Campus, Tirupati';
-                const destination = localStorage.getItem('lastDest') || 'Tirupati Railway Station';
-                const rideId = localStorage.getItem('lastRideId') || `FR-${Date.now()}`;
-                const totalFare = parseFloat(localStorage.getItem('selectedFare')) || 150;
-                const paymentMethod = localStorage.getItem('lastPaymentMethod') || 'Card';
+	            function populateRideDetails() {
+	                const driver = getRandomDriver();
+	                
+	                const pickup = localStorage.getItem('lastPickup') || 'MBU Campus, Tirupati';
+	                const destination = localStorage.getItem('lastDest') || 'Tirupati Railway Station';
+	                const rideId = localStorage.getItem('lastRideId') || `FR-${Date.now()}`;
+	                const totalFare = parseFloat(localStorage.getItem('selectedFare')) || 150;
+	                const paymentMethod = localStorage.getItem('lastPaymentMethod') || 'Card';
+	
+	                // Persist a few details for the feedback page.
+	                try {
+	                    localStorage.setItem('lastRideId', rideId);
+	                    localStorage.setItem('lastDriverName', driver.name);
+	                    localStorage.setItem('lastDriverVehicle', driver.vehicle);
+	                } catch (_) {}
 
-                // Populate driver info
-                dom.driverName.textContent = driver.name;
-                dom.driverVehicle.textContent = driver.vehicle;
-                dom.driverRating.innerHTML = `<i class="ph-star-fill"></i> ${driver.rating}`;
+	                // Populate driver info
+	                dom.driverName.textContent = driver.name;
+	                dom.driverVehicle.textContent = driver.vehicle;
+	                dom.driverRating.innerHTML = `<i class="ph-star-fill"></i> ${driver.rating}`;
                 dom.driverAvatar.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(driver.name)}&background=374151&color=e5e7eb`;
                 
                 // Populate trip info
@@ -343,10 +350,26 @@
                 });
             });
 
-            // Initialize
-            populateRideDetails();
-        });
-    </script>
-</body>
-</html>
-
+	            // Initialize
+	            populateRideDetails();
+	
+	            // Auto-redirect to feedback after completion (only when arriving from a booking flow).
+	            (function setupAutoFeedbackRedirect() {
+	                const params = new URLSearchParams(window.location.search);
+	                const shouldRedirect = params.get('booked') === '1' || params.get('autofeedback') === '1';
+	                if (!shouldRedirect) return;
+	
+	                let canceled = false;
+	                const cancel = () => { canceled = true; };
+	                ['click', 'keydown', 'wheel', 'touchstart'].forEach(evt => window.addEventListener(evt, cancel, { once: true, passive: true }));
+	
+	                showToast('Trip completed', 'Redirecting to ride feedback…', 'ph-star', 'amber');
+	                setTimeout(() => {
+	                    if (canceled) return;
+	                    window.location.href = 'ride_feedback.html';
+	                }, 3200);
+	            })();
+	        });
+	    </script>
+	</body>
+	</html>

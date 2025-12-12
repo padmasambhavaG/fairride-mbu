@@ -34,12 +34,15 @@
 </head>
 <body class="antialiased text-slate-200">
     <div class="min-h-screen">
-        <header class="p-4 md:p-6 fade-in-up">
-            <nav class="container mx-auto flex justify-between items-center">
-                <a href="driver_dashboard.html" class="text-2xl font-black text-slate-50"><span class="animated-gradient-text">My Profile</span></a>
-                <a href="driver_dashboard.html" class="w-10 h-10 bg-gray-700 rounded-full flex items-center justify-center border-2 border-gray-600"><i class="ph-x text-xl text-slate-300"></i></a>
-            </nav>
-        </header>
+	        <header class="p-4 md:p-6 fade-in-up">
+	            <nav class="container mx-auto flex justify-between items-center">
+	                <a href="driver_dashboard.html" class="text-2xl font-black text-slate-50"><span class="animated-gradient-text">My Profile</span></a>
+	                <a href="driver_dashboard.html" class="inline-flex items-center gap-2 bg-gray-800/50 hover:bg-gray-700/70 border border-gray-700 text-slate-200 font-semibold px-4 py-2 rounded-xl transition-all duration-200 backdrop-blur-sm">
+	                    <i class="ph-gauge text-lg text-amber-300"></i>
+	                    <span>Dashboard</span>
+	                </a>
+	            </nav>
+	        </header>
         <main class="container mx-auto p-4 md:p-6">
             <section class="max-w-2xl mx-auto card p-6 md:p-8 fade-in-up" style="animation-delay: 0.2s;">
                 <div class="flex flex-col items-center space-y-4 mb-8">
@@ -136,7 +139,9 @@
     </div>
     <script>
         // Load driver profile and handle doc uploads
-        const API_BASE = window.API_BASE || 'http://localhost:3001';
+        function resolveApiBases() {
+            return [window.API_BASE, `${location.protocol}//${location.hostname}:3001`, 'http://127.0.0.1:3001', 'http://localhost:3001'].filter(Boolean);
+        }
         // Policy flags
         const POLICY_ALLOW_EDIT_CONTACT = false; // phone is private
         const POLICY_ALLOW_EDIT_VEHICLE = false; // vehicle number is private
@@ -175,26 +180,46 @@
 
             if (!token) { loadFromLocal(); return; }
 
-            // Populate top fields from backend, fallback to local
-            Promise.all([
-                fetch(API_BASE + '/api/users/me', { headers: { 'Authorization': `Bearer ${token}` }}).then(r=>r.ok ? r.json() : Promise.reject()),
-                fetch(API_BASE + '/api/driver/profile', { headers: { 'Authorization': `Bearer ${token}` }}).then(r=>r.ok ? r.json() : Promise.reject())
-            ]).then(([me, profile]) => {
-                const nameEl = document.getElementById('full-name');
-                const phoneEl = document.getElementById('phone');
-                const vehicleEl = document.getElementById('vehicle');
-                const genderEl = document.getElementById('driver-gender');
-                const heading = document.getElementById('driver-name-heading');
-                if (nameEl && me?.name) nameEl.value = me.name;
-                if (heading && me?.name) heading.textContent = me.name;
-                if (phoneEl && me?.phone) phoneEl.value = me.phone;
-                if (vehicleEl && profile?.vehicleNumber) vehicleEl.value = profile.vehicleNumber;
-                if (genderEl && me?.gender) genderEl.value = me.gender;
-                // Set avatar initial
-                const initial = (me?.name || '').trim().charAt(0).toUpperCase() || 'D';
-                const avatar = document.getElementById('driver-avatar');
-                if (avatar) avatar.src = `https://placehold.co/128x128/1f2937/FBBF24?text=${encodeURIComponent(initial)}`;
-            }).catch(loadFromLocal);
+            // Populate top fields from backend (try common bases), fallback to local
+            (async () => {
+                const bases = resolveApiBases();
+                for (const base of [...new Set(bases)]) {
+                    try {
+                        const root = base.replace(/\/$/, '');
+                        const [meRes, profRes] = await Promise.all([
+                            fetch(root + '/api/users/me', { headers: { 'Authorization': `Bearer ${token}` } }),
+                            fetch(root + '/api/driver/profile', { headers: { 'Authorization': `Bearer ${token}` } })
+                        ]);
+                        if (!meRes.ok || !profRes.ok) continue;
+                        const me = await meRes.json();
+                        const profile = await profRes.json();
+
+                        const nameEl = document.getElementById('full-name');
+                        const phoneEl = document.getElementById('phone');
+                        const vehicleEl = document.getElementById('vehicle');
+                        const genderEl = document.getElementById('driver-gender');
+                        const heading = document.getElementById('driver-name-heading');
+                        if (nameEl && me?.name) nameEl.value = me.name;
+                        if (heading && me?.name) heading.textContent = me.name;
+                        if (phoneEl && me?.phone) phoneEl.value = me.phone;
+                        if (vehicleEl && profile?.vehicleNumber) vehicleEl.value = profile.vehicleNumber;
+                        if (genderEl && me?.gender) genderEl.value = me.gender;
+                        const initial = (me?.name || '').trim().charAt(0).toUpperCase() || 'D';
+                        const avatar = document.getElementById('driver-avatar');
+                        if (avatar) avatar.src = `https://placehold.co/128x128/1f2937/FBBF24?text=${encodeURIComponent(initial)}`;
+
+                        // Refresh local cache
+                        try {
+                            if (me?.name) localStorage.setItem('currentUserName', me.name);
+                            if (me?.phone) localStorage.setItem('currentUserPhone', me.phone);
+                            if (me?.gender) localStorage.setItem('currentUserGender', me.gender);
+                            if (profile?.vehicleNumber) localStorage.setItem('currentUserVehicle', profile.vehicleNumber);
+                        } catch (_) {}
+                        return;
+                    } catch (_) {}
+                }
+                loadFromLocal();
+            })();
 
             function uploadDoc(inputId, nameId, fieldName){
                 const input = document.getElementById(inputId);
@@ -256,13 +281,17 @@
                     // Save to backend (name and gender only; phone/vehicle are private)
                     let uData = null;
                     try {
-                        const uRes = await fetch(API_BASE + '/api/users/me', { method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ name, gender }) });
+                        const bases = resolveApiBases();
+                        const base = bases.find(Boolean) || 'http://localhost:3001';
+                        const uRes = await fetch(base.replace(/\/$/, '') + '/api/users/me', { method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ name, gender }) });
                         uData = await uRes.json();
                         if (!uRes.ok) throw new Error(uData?.error || 'Failed to save profile');
                     } catch (err) { console.warn('User save offline fallback', err); }
                     if (POLICY_ALLOW_EDIT_VEHICLE) {
                         try {
-                            const pRes = await fetch(API_BASE + '/api/driver/profile', { method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ vehicleNumber }) });
+                            const bases = resolveApiBases();
+                            const base = bases.find(Boolean) || 'http://localhost:3001';
+                            const pRes = await fetch(base.replace(/\/$/, '') + '/api/driver/profile', { method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ vehicleNumber }) });
                             const pData = await pRes.json();
                             if (!pRes.ok) throw new Error(pData?.error || 'Failed to save vehicle');
                         } catch (err) { console.warn('Vehicle save skipped/failed', err); }
@@ -308,7 +337,7 @@
         });
     </script>
     <script defer src="assets/floating-autos.js"></script>
-    <script defer src="assets/theme.js"></script>
+
 </body>
 </html>
 

@@ -10,7 +10,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@1.4.0/dist/chartjs-plugin-annotation.min.js"></script>
     
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyD7k7lwB9wY5nvf208P4me01zZHlo_MN2c&libraries=places" onerror="showApiKeyError()"></script>
+    <!-- Maps are optional here. If you add map features later, configure via assets/maps-config.js and loadGoogleMaps(). -->
     
     <style>
         :root { 
@@ -46,10 +46,10 @@
 <body class="antialiased text-slate-200">
     <header class="p-4 md:p-6">
         <nav class="container mx-auto flex justify-between items-center">
-            <a href="#" class="text-2xl font-black text-slate-50"><span class="animated-gradient-text">FairRide Tirupati</span></a>
+            <a href="dashboard.html" class="text-2xl font-black text-slate-50"><span class="animated-gradient-text">FairRide Tirupati</span></a>
             <div class="flex items-center gap-4">
                 <div id="current-time" class="text-sm text-slate-400 font-medium hidden md:block"></div>
-                <a href="#" class="inline-flex items-center gap-2 bg-gray-800/60 hover:bg-gray-700/70 border border-gray-700 text-slate-300 font-semibold py-2 px-3 rounded-lg transition-all"><i class="ph-house"></i>Dashboard</a>
+                <a href="dashboard.html" class="inline-flex items-center gap-2 bg-gray-800/60 hover:bg-gray-700/70 border border-gray-700 text-slate-300 font-semibold py-2 px-3 rounded-lg transition-all"><i class="ph-house"></i>Dashboard</a>
             </div>
         </nav>
     </header>
@@ -109,11 +109,6 @@
     </main>
 
     <script>
-        const showApiKeyError = () => {
-            document.getElementById('api-key-error')?.classList.remove('hidden');
-            console.error("Google Maps API Error: Invalid or missing API key.");
-        };
-        
         document.addEventListener('DOMContentLoaded', () => {
             const chartTextColor = '#e5e7eb', chartGridColor = 'rgba(148,163,184,0.15)';
             const primaryColor = '#FBBF24', primaryColorSoft = 'rgba(251,191,36,0.25)';
@@ -269,4 +264,3 @@
     </script>
 </body>
 </html>
-
