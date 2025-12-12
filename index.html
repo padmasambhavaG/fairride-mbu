@@ -468,11 +468,33 @@
         function mockApiPost(path, payload) {
             // Minimal offline login mock
             if (path === '/api/auth/login') {
-                const name = (payload && (payload.email || payload.phone || payload.studentId)) || 'Demo User';
-                let role = 'RIDER';
-                if (payload && payload.phone) role = 'DRIVER';
-                if (payload && payload.email && /admin/i.test(payload.email)) role = 'ADMIN';
-                return Promise.resolve({ token: 'demo-token', user: { id: 0, name, role } });
+                // Try to use the locally saved offline users from signup.html (mock_users)
+                const read = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) || d; } catch { return d; } };
+                const users = read('mock_users', []);
+                const identifier = (payload && (payload.email || payload.phone || payload.studentId)) || '';
+                const found = users.find(u =>
+                    (payload?.email && u.email === payload.email) ||
+                    (payload?.phone && u.phone === payload.phone) ||
+                    (payload?.studentId && u.studentId === payload.studentId)
+                );
+
+                // Fallback role heuristic for demo/admin
+                let role = found?.role || 'RIDER';
+                if (!found) {
+                    if (payload && payload.phone) role = 'DRIVER';
+                    if (payload && payload.email && /admin/i.test(payload.email)) role = 'ADMIN';
+                }
+
+                const user = found || {
+                    id: 0,
+                    name: identifier || 'Demo User',
+                    role,
+                    email: payload?.email || null,
+                    phone: payload?.phone || null,
+                    studentId: payload?.studentId || null
+                };
+
+                return Promise.resolve({ token: 'demo-token', user });
             }
             return Promise.reject(new Error('Offline mode: endpoint not available'));
         }
@@ -503,6 +525,29 @@
             return data || {};
         }
 
+        function cacheCurrentUser(user) {
+            try {
+                const keys = [
+                    'currentUserName',
+                    'currentUserRole',
+                    'currentUserStudentId',
+                    'currentUserEmail',
+                    'currentUserPhone',
+                    'currentUserGender',
+                    'currentUserAvatarUrl'
+                ];
+                keys.forEach(k => localStorage.removeItem(k));
+                if (!user) return;
+                if (user.name) localStorage.setItem('currentUserName', user.name);
+                if (user.role) localStorage.setItem('currentUserRole', user.role);
+                if (user.studentId) localStorage.setItem('currentUserStudentId', user.studentId);
+                if (user.email) localStorage.setItem('currentUserEmail', user.email);
+                if (user.phone) localStorage.setItem('currentUserPhone', user.phone);
+                if (user.gender) localStorage.setItem('currentUserGender', user.gender);
+                if (user.avatarUrl) localStorage.setItem('currentUserAvatarUrl', user.avatarUrl);
+            } catch (_) {}
+        }
+
         document.getElementById('student-login-btn').addEventListener('click', async (e) => {
             e.preventDefault();
             const identifier = document.getElementById('student-email').value.trim();
@@ -513,13 +558,8 @@
             try {
                 const data = await apiPost('/api/auth/login', payload);
                 localStorage.setItem('authToken', data.token);
-                if (data.user) {
-                    try {
-                        if (data.user.name) localStorage.setItem('currentUserName', data.user.name);
-                        if (data.user.role) localStorage.setItem('currentUserRole', data.user.role);
-                    } catch (_) {}
-                }
-                window.location.href = 'dashboard.html';
+                cacheCurrentUser(data.user);
+                window.location.href = 'signup_welcome.html';
             } catch (err) { alert(err.message || 'Login failed'); }
         });
 
@@ -533,12 +573,7 @@
             try {
                 const data = await apiPost('/api/auth/login', payload);
                 localStorage.setItem('authToken', data.token);
-                if (data.user) {
-                    try {
-                        if (data.user.name) localStorage.setItem('currentUserName', data.user.name);
-                        if (data.user.role) localStorage.setItem('currentUserRole', data.user.role);
-                    } catch (_) {}
-                }
+                cacheCurrentUser(data.user);
                 window.location.href = 'driver_dashboard.html';
             } catch (err) { alert(err.message || 'Login failed'); }
         });
@@ -554,12 +589,7 @@
             try {
                 const data = await apiPost('/api/auth/login', payload);
                 localStorage.setItem('authToken', data.token);
-                if (data.user) {
-                    try {
-                        if (data.user.name) localStorage.setItem('currentUserName', data.user.name);
-                        if (data.user.role) localStorage.setItem('currentUserRole', data.user.role);
-                    } catch (_) {}
-                }
+                cacheCurrentUser(data.user);
                 // Go to Admin Console
                 window.location.href = 'admin.html';
             } catch (err) { alert(err.message || 'Login failed'); }
@@ -1017,18 +1047,33 @@
                     : 'No additional charge';
             }
 
-            if (fareBreakdownDemand) {
-                fareBreakdownDemand.textContent = components.demandSurcharge > 0
-                    ? `+ ${formatCurrency(components.demandSurcharge)} (${demand?.label || 'surcharge'})`
-                    : '₹ 0 (no surcharge)';
-            }
+	            if (fareBreakdownDemand) {
+	                fareBreakdownDemand.textContent = components.demandSurcharge > 0
+	                    ? `+ ${formatCurrency(components.demandSurcharge)} (${demand?.label || 'surcharge'})`
+	                    : '₹ 0 (no surcharge)';
+	            }
 
-            if (fareBreakdownTotal) fareBreakdownTotal.textContent = formatCurrency(components.total);
+	            if (fareBreakdownTotal) fareBreakdownTotal.textContent = formatCurrency(components.total);
 
-            if (fareDemandNote) {
-                const roundingNote = components.roundingAdjustment !== 0
-                    ? ` Rounded to the nearest ${formatCurrency(FARE_RATES.rounding)}.`
-                    : '';
+	            // Auto-scroll the modal to show results after estimating.
+	            try {
+	                const modal = document.getElementById('fare-estimator-modal');
+	                requestAnimationFrame(() => {
+	                    try {
+	                        if (modal && modal.scrollHeight > modal.clientHeight) {
+	                            const top = Math.max(0, fareResultEl.offsetTop - 16);
+	                            modal.scrollTo({ top, behavior: 'smooth' });
+	                        } else {
+	                            fareResultEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+	                        }
+	                    } catch (_) {}
+	                });
+	            } catch (_) {}
+
+	            if (fareDemandNote) {
+	                const roundingNote = components.roundingAdjustment !== 0
+	                    ? ` Rounded to the nearest ${formatCurrency(FARE_RATES.rounding)}.`
+	                    : '';
                 const fallbackNote = meta.isFallback ? ' Live data fallback in use.' : '';
                 fareDemandNote.textContent = `${demand?.message || 'Demand data unavailable.'}${roundingNote}${fallbackNote}`;
             }
@@ -1053,7 +1098,7 @@
     </script>
 
     <!-- 3D embeds shown above via Sketchfab iframes -->
-    <script defer src="assets/theme.js"></script>
+
     <script defer src="assets/defer-3d.js"></script>
     <script defer src="assets/floating-autos.js"></script>
 </body>

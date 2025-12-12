@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Admin Console - FairRide MBU</title>
-  <script src="https://cdn-tailwindcss.vercel.app/"></script>
+  <link rel="stylesheet" href="assets/tailwind.css">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet" />
   <link href="https://cdnjs.cloudflare.com/ajax/libs/phosphor-icons/1.4.2/css/phosphor.min.css" rel="stylesheet" />
   <style>
@@ -18,10 +18,12 @@
     .badge-verified { background: rgba(16,185,129,.15); color: #34D399; border: 1px solid rgba(16,185,129,.35); }
     .badge-rejected { background: rgba(239,68,68,.15); color: #F87171; border: 1px solid rgba(239,68,68,.35); }
     .table th, .table td { padding: .75rem .75rem; white-space: nowrap; }
-    .table thead th { position: sticky; top: 0; background: rgba(31,41,55,0.95); }
-    .toast { position: fixed; top: 16px; left: 50%; transform: translateX(-50%) translateY(-20px); z-index: 110; opacity: 0; transition: transform .35s cubic-bezier(0.16,1,0.3,1), opacity .35s ease; }
-    .toast.visible { transform: translateX(-50%) translateY(0); opacity: 1; }
-  </style>
+	    .table thead th { position: sticky; top: 0; background: rgba(31,41,55,0.95); }
+	    .toast { position: fixed; top: 16px; left: 50%; transform: translateX(-50%) translateY(-20px); z-index: 110; opacity: 0; transition: transform .35s cubic-bezier(0.16,1,0.3,1), opacity .35s ease; }
+	    .toast.visible { transform: translateX(-50%) translateY(0); opacity: 1; }
+	    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+	    .no-scrollbar::-webkit-scrollbar { display: none; }
+	  </style>
   <link rel="stylesheet" href="assets/floating-autos.css" />
 </head>
 <body class="antialiased text-slate-200">
@@ -36,14 +38,14 @@
       </nav>
     </header>
 
-    <main class="container mx-auto p-4 md:p-6 space-y-6">
-      <!-- Stats -->
-      <section class="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div class="card p-5"><p class="text-slate-400">Total Drivers</p><p id="stat-total" class="text-3xl font-extrabold text-amber-400">—</p></div>
-        <div class="card p-5"><p class="text-slate-400">Pending</p><p id="stat-pending" class="text-3xl font-extrabold text-amber-400">—</p></div>
-        <div class="card p-5"><p class="text-slate-400">Verified</p><p id="stat-verified" class="text-3xl font-extrabold text-amber-400">—</p></div>
-        <div class="card p-5"><p class="text-slate-400">Rejected</p><p id="stat-rejected" class="text-3xl font-extrabold text-amber-400">—</p></div>
-      </section>
+	    <main class="container mx-auto p-4 md:p-6 space-y-6">
+	      <!-- Stats -->
+	      <section class="no-scrollbar flex gap-4 overflow-x-auto pb-2 -mx-1 px-1">
+	        <div class="card p-5 flex-none w-64"><p class="text-slate-400">Total Drivers</p><p id="stat-total" class="text-3xl font-extrabold text-amber-400">—</p></div>
+	        <div class="card p-5 flex-none w-64"><p class="text-slate-400">Pending</p><p id="stat-pending" class="text-3xl font-extrabold text-amber-400">—</p></div>
+	        <div class="card p-5 flex-none w-64"><p class="text-slate-400">Verified</p><p id="stat-verified" class="text-3xl font-extrabold text-amber-400">—</p></div>
+	        <div class="card p-5 flex-none w-64"><p class="text-slate-400">Rejected</p><p id="stat-rejected" class="text-3xl font-extrabold text-amber-400">—</p></div>
+	      </section>
 
       <!-- Controls -->
       <section class="card p-4 flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
@@ -217,15 +219,23 @@
       return drivers;
     }
 
-    async function init(){
-      // Ensure admin token or offline admin
-      const base = await resolveApiBase();
-      document.getElementById('api-pill').textContent = base ? `API: ${base}` : 'Offline';
-      document.getElementById('api-pill').classList.remove('hidden');
-      if (OFFLINE) {
-        const role = localStorage.getItem('currentUserRole') || '';
-        if ((role || '').toUpperCase() !== 'ADMIN') { alert('Please login as Admin.'); window.location.href = 'index.html'; return; }
-      } else {
+	    async function init(){
+	      // Ensure admin token or offline admin
+	      const base = await resolveApiBase();
+	      const apiPill = document.getElementById('api-pill');
+	      if (apiPill) {
+	        if (base) {
+	          apiPill.textContent = `API: ${base}`;
+	          apiPill.classList.remove('hidden');
+	        } else {
+	          apiPill.textContent = '';
+	          apiPill.classList.add('hidden');
+	        }
+	      }
+	      if (OFFLINE) {
+	        const role = localStorage.getItem('currentUserRole') || '';
+	        if ((role || '').toUpperCase() !== 'ADMIN') { alert('Please login as Admin.'); window.location.href = 'index.html'; return; }
+	      } else {
         try {
           const me = await api('/api/users/me');
           if (!me || me.role !== 'ADMIN') { window.location.href = 'index.html'; return; }
@@ -254,7 +264,7 @@
     }
     init();
   </script>
-  <script defer src="assets/theme.js"></script>
+
   <script defer src="assets/floating-autos.js"></script>
 </body>
 </html>

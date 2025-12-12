@@ -118,7 +118,19 @@ app.post('/api/auth/login', async (req, res) => {
     const ok = await bcrypt.compare(password, user.passwordHash);
     if (!ok) return res.status(401).json({ error: 'Invalid credentials' });
     const token = jwt.sign({ id: user.id, role: user.role }, jwtSecret, { expiresIn: '7d' });
-    res.json({ token, user: { id: user.id, name: user.name, role: user.role } });
+    res.json({
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        role: user.role,
+        email: user.email,
+        phone: user.phone,
+        studentId: user.studentId,
+        gender: user.gender,
+        avatarUrl: user.avatarUrl
+      }
+    });
   } catch (e) {
     if (e instanceof z.ZodError) return res.status(400).json({ error: e.errors[0]?.message || 'Invalid input' });
     res.status(500).json({ error: 'Server error' });
@@ -284,9 +296,6 @@ app.post('/api/admin/notify', auth, async (req, res) => {
   // Placeholder: In real system, integrate SMS/Push provider
   res.json({ ok: true, delivered: !!userId, message });
 });
-
-// Health
-app.get('/api/health', (req, res) => res.json({ ok: true }));
 
 // Health check
 app.get('/api/health', (req, res) => res.json({ ok: true }));
