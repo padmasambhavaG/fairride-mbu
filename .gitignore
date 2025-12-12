@@ -10,7 +10,7 @@ node_modules/
 backend/node_modules/
 
 # Secret client-side configs
-assets/maps-config.js
+# assets/maps-config.js
 assets/ai-config.js
 
 # Logs
