@@ -1,0 +1,988 @@
+﻿﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Dashboard - FairRide MBU</title>
+    <link rel="stylesheet" href="assets/tailwind.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/phosphor-icons/1.4.2/css/phosphor.min.css" rel="stylesheet">
+    <!-- Google Maps API Script -->
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyD7k7lwB9wY5nvf208P4me01zZHlo_MN2c&libraries=places"></script>
+    <style>
+        :root {
+            --primary-color: #FBBF24; /* Amber 400 */
+            --primary-color-transparent-1: rgba(251, 191, 36, 0.2);
+            --primary-color-transparent-2: rgba(251, 191, 36, 0.1);
+            --primary-color-transparent-3: rgba(251, 191, 36, 0.4);
+            --primary-color-light: #FCD34D; /* Amber 300 */
+            --bg-color: #111827; /* Gray 900 */
+            --card-bg-color: rgba(31, 41, 55, 0.6); /* Gray 800 with alpha */
+            --shadow-color: rgba(251, 191, 36, 0.5);
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            overflow-x: hidden;
+        }
+
+        .card, .modal-card {
+            background-color: var(--card-bg-color);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-radius: 1.5rem;
+            border: 1px solid var(--primary-color-transparent-1);
+            box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.3);
+        }
+
+        .animated-gradient-text {
+            background: linear-gradient(90deg, var(--primary-color-light), var(--primary-color), #f9fafb, var(--primary-color), var(--primary-color-light));
+            background-size: 200% auto; 
+            background-clip: text;
+            -webkit-background-clip: text; 
+            -webkit-text-fill-color: transparent;
+            animation: textGradientShift 4s linear infinite;
+        }
+        @keyframes textGradientShift { to { background-position: 200% center; } }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes fadeOutDown {
+            from { opacity: 1; transform: translateY(0); }
+            to { opacity: 0; transform: translateY(20px); }
+        }
+
+        .fade-in-up { animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .fade-out-down { animation: fadeOutDown 0.6s cubic-bezier(0.7, 0, 0.84, 0) forwards; }
+
+
+        .input-field, .select-field, .textarea-field {
+            background-color: #374151; 
+            border: 1px solid #4b5563; 
+            border-radius: 0.5rem;
+            transition: border-color 0.2s, box-shadow 0.2s; 
+            color: #f3f4f6; 
+        }
+        .select-field { -webkit-appearance: none; -moz-appearance: none; appearance: none; }
+        .input-field::placeholder, .textarea-field::placeholder { color: #9ca3af; }
+        .input-field:focus, .select-field:focus, .textarea-field:focus { outline: none; border-color: var(--primary-color); box-shadow: 0 0 0 3px var(--primary-color-transparent-1); }
+
+        .primary-btn { 
+            transition: transform 0.2s ease, box-shadow 0.2s ease; 
+            background-color: var(--primary-color);
+            color: #111827;
+        }
+        .primary-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 15px -3px var(--shadow-color), 0 4px 6px -4px var(--shadow-color);
+        }
+        
+        .modal-backdrop {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0,0,0,0.7);
+            backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+            z-index: 100;
+            opacity: 0; pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        .modal-backdrop.visible { opacity: 1; pointer-events: auto; }
+
+        .modal-card {
+            position: fixed; top: 50%; left: 50%;
+            transform: translate(-50%, -50%) scale(0.95);
+            opacity: 0; pointer-events: none;
+            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+            z-index: 101;
+        }
+        .modal-backdrop.visible .modal-card {
+            transform: translate(-50%, -50%) scale(1);
+            opacity: 1; pointer-events: auto;
+        }
+
+        .booking-tab {
+            transition: all 0.3s ease;
+            border-bottom: 2px solid transparent;
+        }
+        .booking-tab.active {
+            color: var(--primary-color);
+            border-bottom-color: var(--primary-color);
+        }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        #map-container {
+            position: relative;
+            background: #1f2937; /* Gray 800 */
+        }
+      
+        .spinner, .btn-spinner {
+            width: 24px; height: 24px;
+            border: 3px solid rgba(251, 191, 36, 0.3);
+            border-top-color: var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        .btn-spinner {
+             width: 16px; height: 16px; border-width: 2px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Live Ride Pools animations */
+        .live-dot {
+            width: 10px; height: 10px; border-radius: 9999px;
+            background-color: #34d399; /* emerald-400 */
+            box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.6);
+            animation: pingDot 1.6s cubic-bezier(0, 0, 0.2, 1) infinite;
+        }
+        @keyframes pingDot {
+            0% { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.6); }
+            70% { box-shadow: 0 0 0 8px rgba(52, 211, 153, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0); }
+        }
+        .count-bump { display: inline-block; }
+        .count-bump.bump { animation: bump 220ms ease-out; }
+        @keyframes bump { 0% { transform: scale(1); } 50% { transform: scale(1.2); } 100% { transform: scale(1); } }
+        
+        .departing {
+            opacity: 0.5;
+            transition: opacity 0.5s ease;
+        }
+        
+        /* Notification styles */
+        #notification {
+            position: fixed;
+            top: -100px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 1rem 2rem;
+            border-radius: 0.75rem;
+            color: white;
+            z-index: 200;
+            transition: top 0.4s ease-in-out;
+            font-weight: 600;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+        #notification.show { top: 20px; }
+        #notification.error { background-color: #ef4444; } /* Red 500 */
+        #notification.success { background-color: #22c55e; } /* Green 500 */
+
+        /* Ride pools scrolling */
+        #ride-pools-list {
+            max-height: 420px;
+            overflow-y: auto;
+            padding-right: 0.5rem; /* Space for scrollbar */
+        }
+
+        /* Custom scrollbar styling */
+        #ride-pools-list::-webkit-scrollbar {
+            width: 8px;
+        }
+        #ride-pools-list::-webkit-scrollbar-track {
+            background: rgba(31, 41, 55, 0.5); /* Gray 800 transparent */
+            border-radius: 10px;
+        }
+        #ride-pools-list::-webkit-scrollbar-thumb {
+            background-color: #4b5563; /* Gray 600 */
+            border-radius: 10px;
+            border: 2px solid transparent;
+            background-clip: content-box;
+        }
+        #ride-pools-list::-webkit-scrollbar-thumb:hover {
+            background-color: #6b7280; /* Gray 500 */
+        }
+    </style>
+</head>
+<body class="antialiased text-slate-200">
+
+    <div id="notification"></div>
+
+    <div class="min-h-screen">
+        <!-- Header -->
+        <header class="p-4 md:p-6 fade-in-up">
+            <nav class="container mx-auto flex justify-between items-center">
+                <div class="text-2xl font-black text-slate-50">
+                    <span class="animated-gradient-text">FairRide MBU</span>
+                </div>
+                <div class="flex items-center gap-3">
+                    <a href="predictions.html" class="hidden sm:inline-flex items-center gap-2 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 font-semibold py-2 px-3 rounded-lg transition-all">
+                        <i class="ph-trend-up"></i>
+                        Predictions
+                    </a>
+                    <a href="user_profile.html" class="flex items-center space-x-4 group focus:outline-none focus:ring-2 focus:ring-amber-400 rounded-full">
+                        <span id="user-greeting" class="text-sm font-medium text-slate-300 hidden sm:block group-hover:text-white transition-colors">Hello, Student</span>
+                        <div class="w-10 h-10 bg-gray-700 rounded-full flex items-center justify-center border-2 border-gray-600 group-hover:border-amber-400 transition-colors">
+                            <i class="ph-user text-xl text-slate-300"></i>
+                        </div>
+                    </a>
+                </div>
+            </nav>
+        </header>
+
+        <!-- Main Content -->
+        <main class="container mx-auto p-4 md:p-6">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <!-- Left Column: Booking & Controls -->
+                <div class="lg:col-span-1 space-y-8">
+                    <!-- Booking Card -->
+                    <section class="card p-6 md:p-8 fade-in-up" style="animation-delay: 0.2s;">
+                        <h1 class="text-2xl md:text-3xl font-bold text-slate-50 mb-4">Plan Your Journey</h1>
+                        <div class="flex border-b border-gray-700 mb-6">
+                            <button id="ride-now-tab" class="booking-tab active font-semibold py-3 px-4" data-target="ride-now-content"><i class="ph-lightning-fill mr-2"></i>Ride Now</button>
+                            <button id="schedule-tab" class="booking-tab font-semibold py-3 px-4 text-gray-400" data-target="schedule-content"><i class="ph-calendar-plus-fill mr-2"></i>Schedule</button>
+                        </div>
+                        <div id="ride-now-content" class="tab-content active">
+                            <div class="space-y-4">
+                                <div class="relative">
+                                    <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><i class="ph-navigation-arrow text-xl text-slate-400"></i></div>
+                                    <input id="pickup-input" list="destinations" class="input-field w-full pl-12 pr-12 py-4 text-lg" placeholder="Enter pickup location...">
+                                    <button id="use-my-location" class="absolute inset-y-0 right-2 my-2 px-3 rounded-lg text-sm bg-gray-700 hover:bg-gray-600 text-slate-200">Use my location</button>
+                                </div>
+                                <div class="relative"><div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><i class="ph-map-pin-line text-xl text-slate-400"></i></div><input id="destination-input" list="destinations" class="input-field w-full pl-12 pr-4 py-4 text-lg" placeholder="Enter destination..."></div>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div><label for="passengers" class="block text-sm font-semibold text-slate-300 mb-2">Passengers</label><select id="passengers" class="select-field input-field w-full px-4 py-2.5"><option>1</option><option>2</option><option>3</option></select></div>
+                                    <div><label for="ride-type" class="block text-sm font-semibold text-slate-300 mb-2">Ride Type</label><select id="ride-type" class="select-field input-field w-full px-4 py-2.5"><option>Auto</option><option>Share Auto</option><option>Bike</option></select></div>
+                                </div>
+                                <div id="route-metrics" class="flex flex-wrap gap-2 text-sm">
+                                    <span id="distance-chip" class="bg-amber-500/10 text-amber-300 font-semibold px-3 py-1 rounded-full">Distance: &mdash;</span>
+                                    <span id="eta-chip" class="bg-amber-500/10 text-amber-300 font-semibold px-3 py-1 rounded-full">ETA: &mdash;</span>
+                                </div>
+                                <button id="find-ride-btn" class="primary-btn w-full font-bold py-4 rounded-lg shadow-lg flex items-center justify-center text-lg" style="--tw-shadow-color: var(--shadow-color);"><i class="ph-magnifying-glass mr-2"></i>Find Ride</button>
+                            </div>
+                        </div>
+                        <div id="schedule-content" class="tab-content">
+                             <div class="space-y-4">
+                                <div class="relative"><div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><i class="ph-navigation-arrow text-xl text-slate-400"></i></div><input id="schedule-pickup-input" list="destinations" class="input-field w-full pl-12 pr-4 py-4 text-lg" placeholder="Enter pickup location..."></div>
+                                <div class="relative"><div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><i class="ph-map-pin-line text-xl text-slate-400"></i></div><input id="schedule-destination-input" list="destinations" class="input-field w-full pl-12 pr-4 py-4 text-lg" placeholder="Enter destination..."></div>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div><label for="schedule-date" class="block text-sm font-semibold text-slate-300 mb-2">Date</label><input type="date" id="schedule-date" class="input-field w-full px-4 py-2.5"></div>
+                                    <div><label for="schedule-time" class="block text-sm font-semibold text-slate-300 mb-2">Time</label><input type="time" id="schedule-time" class="input-field w-full px-4 py-2.5"></div>
+                                </div>
+                                <button id="schedule-ride-btn" class="primary-btn w-full font-bold py-4 rounded-lg shadow-lg flex items-center justify-center text-lg" style="--tw-shadow-color: var(--shadow-color);"><i class="ph-calendar-check-fill mr-2"></i>Schedule Ride</button>
+                            </div>
+                        </div>
+                    </section>
+                     <!-- Quick Destinations -->
+                    <section class="fade-in-up" style="animation-delay: 0.4s;">
+                         <div class="flex justify-between items-center mb-4">
+                             <h2 class="text-xl font-bold text-slate-100 flex items-center"><i class="ph-rocket-launch-fill text-amber-400 mr-3"></i>Quick Picks</h2>
+                             <button id="plan-outing-btn" class="text-sm bg-amber-500/10 text-amber-300 font-semibold py-2 px-4 rounded-lg hover:bg-amber-500/20 transition-all">&#10024; Plan My Outing</button>
+                        </div>
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                            <button data-dest="Tirupati Railway Station" class="quick-dest-btn bg-gray-800 hover:bg-gray-700/80 text-slate-300 font-semibold p-4 rounded-lg transition-all text-left"><i class="ph-train text-2xl text-amber-400 mb-2"></i><p>Railway Station</p></button>
+                            <button data-dest="Tirupati Bus Stand" class="quick-dest-btn bg-gray-800 hover:bg-gray-700/80 text-slate-300 font-semibold p-4 rounded-lg transition-all text-left"><i class="ph-bus text-2xl text-amber-400 mb-2"></i><p>Bus Stand</p></button>
+                            <button id="temples-btn" class="bg-gray-800 hover:bg-gray-700/80 text-slate-300 font-semibold p-4 rounded-lg transition-all text-left"><i class="ph-bank text-2xl text-amber-400 mb-2"></i><p>Temples</p></button>
+                            <button id="theatres-btn" class="bg-gray-800 hover:bg-gray-700/80 text-slate-300 font-semibold p-4 rounded-lg transition-all text-left"><i class="ph-popcorn text-2xl text-amber-400 mb-2"></i><p>Theatres</p></button>
+                        </div>
+                    </section>
+                </div>
+
+                 <!-- Right Column: Map and Ride Info -->
+                <div class="lg:col-span-2 space-y-8">
+                    <section class="fade-in-up" style="animation-delay: 0.6s;">
+                         <h2 class="text-xl font-bold text-slate-100 mb-4 flex items-center"><i class="ph-map-trifold-fill text-amber-400 mr-3"></i>Live Map</h2>
+                         <div id="map-container" class="card h-96 rounded-2xl overflow-hidden">
+                            <iframe
+                                title="Tirupati City Map"
+                                class="absolute inset-0 w-full h-full border-0"
+                                loading="lazy"
+                                referrerpolicy="no-referrer-when-downgrade"
+                                src="https://www.google.com/maps?q=Tirupati&output=embed">
+                            </iframe>
+                            <div id="availability-panel" class="absolute top-3 left-3 bg-gray-900/70 backdrop-blur-sm border border-gray-700/60 rounded-xl px-4 py-3 text-slate-200 flex items-center gap-4 z-10">
+                                <div class="flex items-center gap-2">
+                                    <i class="ph-car-profile text-amber-400 text-xl"></i>
+                                    <div>
+                                        <div class="text-xs text-slate-400">Autos nearby</div>
+                                        <div id="nearby-autos" class="text-lg font-bold text-white">--</div>
+                                    </div>
+                                </div>
+                                <div class="w-px h-8 bg-gray-700"></div>
+                                <div class="flex items-center gap-2">
+                                    <i class="ph-clock text-amber-400 text-xl"></i>
+                                    <div>
+                                        <div class="text-xs text-slate-400">Pickup ETA</div>
+                                        <div id="pickup-eta" class="text-lg font-bold text-white">--</div>
+                                    </div>
+                                </div>
+                            </div>
+                         </div>
+                    </section>
+
+                    <section class="fade-in-up" style="animation-delay: 0.8s;">
+                        <div class="flex justify-between items-center mb-4">
+                           <h2 class="text-xl font-bold text-slate-100 flex items-center">
+                                <i class="ph-users-three-fill text-amber-400 mr-3"></i>
+                                Live Ride Pools
+                                <span class="ml-3 inline-flex items-center gap-2 text-xs font-semibold text-emerald-300 bg-emerald-500/10 border border-emerald-500/30 px-2 py-1 rounded-full">
+                                    <span class="live-dot"></span> Live
+                                </span>
+                            </h2>
+                            <button id="create-pool-btn" class="text-sm bg-gray-700 hover:bg-gray-600 text-slate-200 font-semibold py-2 px-3 rounded-lg transition-all"><i class="ph-plus-circle-fill mr-1"></i> Create Pool</button>
+                        </div>
+                        <div id="ride-pools-list" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+                    </section>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <datalist id="destinations"><option value="MBU Campus"></option><option value="Tirumala Temple"></option><option value="Tirupati Railway Station"></option><option value="Tirupati Bus Stand"></option><option value="D-Mart"></option><option value="Kapila Theertham"></option><option value="ISKCON Temple"></option></datalist>
+
+    <div id="theatres-modal-backdrop" class="modal-backdrop"><div class="modal-card w-full max-w-md p-6 md:p-8"><div class="flex justify-between items-center mb-4"><h2 class="text-2xl font-bold animated-gradient-text">Select a Theatre</h2><button id="close-theatres-btn" class="text-slate-400 hover:text-white transition-colors text-2xl leading-none">&times;</button></div><p class="text-slate-400 mb-6">Choose your preferred theatre from the list below.</p><div id="theatres-list" class="space-y-3 max-h-60 overflow-y-auto pr-2"></div></div></div>
+
+    <div id="temples-modal-backdrop" class="modal-backdrop"><div class="modal-card w-full max-w-md p-6 md:p-8"><div class="flex justify-between items-center mb-4"><h2 class="text-2xl font-bold animated-gradient-text">Select a Temple</h2><button id="close-temples-btn" class="text-slate-400 hover:text-white transition-colors text-2xl leading-none">&times;</button></div><p class="text-slate-400 mb-6">Choose your preferred temple from the list below.</p><div id="temples-list" class="space-y-3 max-h-60 overflow-y-auto pr-2"></div></div></div>
+
+    <div id="booking-confirmation-modal-backdrop" class="modal-backdrop">
+        <div class="modal-card w-full max-w-md p-6 md-p-8">
+            <h2 class="text-2xl font-bold animated-gradient-text mb-4">Confirm Your Ride</h2>
+            <div id="confirmation-map" class="mb-4 h-48 rounded-lg bg-gray-700"></div>
+            <div class="space-y-3 mb-6">
+                <div class="flex justify-between items-center"><p class="text-slate-400">Pickup</p><p id="confirm-pickup" class="font-bold text-slate-50"></p></div>
+                <div class="flex justify-between items-center"><p class="text-slate-400">Destination</p><p id="confirm-destination" class="font-bold text-slate-50"></p></div>
+                <div id="fare-details-loading" class="flex items-center justify-center py-8 hidden"><div class="spinner"></div></div>
+                <div id="fare-details-content">
+                    <div class="flex justify-between items-center"><p class="text-slate-400">Est. Duration</p><p id="confirm-eta" class="font-bold text-slate-50">25-30 mins</p></div>
+                    <div class="flex justify-between items-center border-t border-gray-700 pt-3 mt-3"><p class="text-slate-300 font-bold text-lg">Smart Fare</p><p id="confirm-fare" class="font-extrabold text-amber-400 text-2xl"></p></div>
+                    <p id="confirm-fare-justification" class="text-xs text-slate-400 text-right italic mt-1"></p>
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <button id="cancel-booking-btn" class="bg-gray-700 hover:bg-gray-600 text-slate-200 font-bold py-3 rounded-lg transition-all">Cancel</button>
+                <button id="confirm-booking-btn" class="primary-btn font-bold py-3 rounded-lg">Confirm Booking</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="outing-planner-modal-backdrop" class="modal-backdrop">
+        <div class="modal-card w-full max-w-lg p-6 md:p-8">
+            <div class="flex justify-between items-center mb-4"><h2 class="text-2xl font-bold animated-gradient-text">&#10024; AI Outing Planner</h2><button id="close-outing-planner-btn" class="text-slate-400 hover:text-white transition-colors text-2xl leading-none">&times;</button></div>
+            <p class="text-slate-400 mb-4">Tell me what you're looking for, and I'll find the best spots in Tirupati for you!</p>
+            <textarea id="outing-prompt" class="textarea-field w-full p-3 h-24" placeholder="e.g., 'Suggest a good place for dinner tonight'"></textarea>
+            <button id="get-outing-suggestion-btn" class="primary-btn w-full font-bold py-3 rounded-lg mt-4 flex items-center justify-center">Get Suggestion</button>
+            <div id="outing-result-loading" class="flex items-center justify-center py-8 hidden"><div class="spinner"></div></div>
+            <div id="outing-result" class="mt-6 p-4 bg-gray-900/50 rounded-lg border border-gray-700 hidden"></div>
+        </div>
+    </div>
+
+    <!-- Create Pool Modal -->
+    <div id="create-pool-modal-backdrop" class="modal-backdrop">
+        <div class="modal-card w-full max-w-md p-6 md:p-8">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold animated-gradient-text">Create New Ride Pool</h2>
+                <button id="close-create-pool-btn" class="text-slate-400 hover:text-white transition-colors text-2xl leading-none">&times;</button>
+            </div>
+            <p class="text-slate-400 mb-6">Enter a destination to start a new ride pool for others to join.</p>
+            <div class="relative">
+                <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><i class="ph-map-pin-line text-xl text-slate-400"></i></div>
+                <input id="new-pool-destination-input" list="destinations" class="input-field w-full pl-12 pr-4 py-3" placeholder="Enter pool destination...">
+            </div>
+            <button id="confirm-create-pool-btn" class="primary-btn w-full font-bold py-3 rounded-lg mt-4">Create Pool</button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- Element Cache ---
+            const DOMElements = {
+                destinationInput: document.getElementById('destination-input'),
+                pickupInput: document.getElementById('pickup-input'),
+                useMyLocBtn: document.getElementById('use-my-location'),
+                findRideBtn: document.getElementById('find-ride-btn'),
+                bookingModalBackdrop: document.getElementById('booking-confirmation-modal-backdrop'),
+                notificationEl: document.getElementById('notification'),
+                userGreeting: document.getElementById('user-greeting'),
+                scheduleRideBtn: document.getElementById('schedule-ride-btn'),
+                outingPrompt: document.getElementById('outing-prompt'),
+            };
+
+            // --- App State ---
+            let notificationTimeout;
+
+            // --- Notification System ---
+            const showNotification = (message, type = 'error') => {
+                clearTimeout(notificationTimeout);
+                DOMElements.notificationEl.textContent = message;
+                DOMElements.notificationEl.className = type;
+                DOMElements.notificationEl.classList.add('show');
+                notificationTimeout = setTimeout(() => {
+                    DOMElements.notificationEl.classList.remove('show');
+                }, 3000);
+            };
+
+            // --- Gemini API Configuration ---
+            const GEMINI_API_KEY = ""; // Kept empty as per instructions
+            const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${GEMINI_API_KEY}`;
+
+            // --- Dynamic Greeting ---
+            const setGreeting = () => {
+                const hour = new Date().getHours();
+                let greeting = 'Hello, Student';
+                if (hour < 12) greeting = 'Good Morning, Student';
+                else if (hour < 18) greeting = 'Good Afternoon, Student';
+                else greeting = 'Good Evening, Student';
+                if (DOMElements.userGreeting) DOMElements.userGreeting.textContent = greeting;
+            };
+
+            // --- Main Dashboard Logic ---
+            const setupDashboard = () => {
+                const bookingTabs = document.querySelectorAll('.booking-tab');
+                const tabContents = document.querySelectorAll('.tab-content');
+                bookingTabs.forEach(tab => {
+                    tab.addEventListener('click', () => {
+                        const target = document.getElementById(tab.dataset.target);
+                        bookingTabs.forEach(t => t.classList.remove('active', 'text-white'));
+                        tab.classList.add('active', 'text-white');
+                        tabContents.forEach(c => c.classList.remove('active'));
+                        target.classList.add('active');
+                    });
+                });
+
+                const today = new Date().toISOString().split('T')[0];
+                document.getElementById('schedule-date').setAttribute('min', today);
+
+                const quickDestButtons = document.querySelectorAll('.quick-dest-btn');
+                quickDestButtons.forEach(button => {
+                    button.addEventListener('click', () => {
+                        DOMElements.destinationInput.value = button.dataset.dest;
+                        DOMElements.destinationInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    });
+                });
+                
+                DOMElements.scheduleRideBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const pickup = document.getElementById('schedule-pickup-input').value;
+                    const dest = document.getElementById('schedule-destination-input').value;
+                    if (pickup && dest) {
+                        showNotification('Your ride has been scheduled successfully!', 'success');
+                    } else {
+                        showNotification('Please fill in all fields to schedule a ride.');
+                    }
+                });
+
+                DOMElements.useMyLocBtn.addEventListener('click', () => {
+                    if (!navigator.geolocation) { 
+                        showNotification('Geolocation is not supported by your browser.');
+                        return; 
+                    }
+                    DOMElements.useMyLocBtn.disabled = true; 
+                    DOMElements.useMyLocBtn.textContent = 'Locating...';
+                    navigator.geolocation.getCurrentPosition((pos) => {
+                        const lat = pos.coords.latitude.toFixed(6);
+                        const lon = pos.coords.longitude.toFixed(6);
+                        DOMElements.pickupInput.value = `My Location (${lat}, ${lon})`;
+                        DOMElements.pickupInput.dispatchEvent(new Event('input', { bubbles: true }));
+                        DOMElements.useMyLocBtn.disabled = false; 
+                        DOMElements.useMyLocBtn.textContent = 'Use my location';
+                    }, (err) => { 
+                        showNotification((err && err.message) || 'Could not get location.');
+                        DOMElements.useMyLocBtn.disabled = false; 
+                        DOMElements.useMyLocBtn.textContent = 'Use my location'; 
+                    }, { enableHighAccuracy: true, timeout: 10000 });
+                });
+
+                const distanceChip = document.getElementById('distance-chip');
+                const etaChip = document.getElementById('eta-chip');
+                
+                let debounceTimeout;
+                const debouncedUpdate = () => {
+                    clearTimeout(debounceTimeout);
+                    debounceTimeout = setTimeout(updateRouteMetrics, 500);
+                };
+
+                function updateRouteMetrics() {
+                    const pVal = (DOMElements.pickupInput.value || '').trim();
+                    const dVal = (DOMElements.destinationInput.value || '').trim();
+
+                    if (pVal && dVal) {
+                        const distanceService = new google.maps.DistanceMatrixService();
+                        distanceService.getDistanceMatrix({
+                            origins: [pVal],
+                            destinations: [dVal],
+                            travelMode: 'DRIVING',
+                        }, (response, status) => {
+                            if (status === 'OK' && response.rows[0].elements[0].status === 'OK') {
+                                const distance = response.rows[0].elements[0].distance.text;
+                                const duration = response.rows[0].elements[0].duration.text;
+                                distanceChip.textContent = `Distance: ${distance}`;
+                                etaChip.textContent = `ETA: ${duration}`;
+                                
+                                const frame = document.querySelector('#map-container iframe');
+                                if (frame) {
+                                    const query = encodeURIComponent(`${pVal} to ${dVal}`);
+                                    frame.src = `https://www.google.com/maps?q=${query}&output=embed`;
+                                }
+
+                            } else {
+                                distanceChip.textContent = 'Distance: N/A';
+                                etaChip.textContent = 'ETA: N/A';
+                                console.error('Error fetching distance matrix:', status, response);
+                            }
+                        });
+                    } else {
+                        distanceChip.textContent = 'Distance: \u2014';
+                        etaChip.textContent = 'ETA: \u2014';
+                    }
+                }
+                
+                DOMElements.destinationInput.addEventListener('input', debouncedUpdate);
+                DOMElements.pickupInput.addEventListener('input', debouncedUpdate);
+            };
+
+            const setupAvailability = () => {
+                const autosEl = document.getElementById('nearby-autos');
+                const etaEl = document.getElementById('pickup-eta');
+                if (!autosEl || !etaEl) return;
+
+                const predictEta = (autos) => {
+                    if (autos >= 10) return [2, 4];
+                    if (autos >= 6) return [3, 6];
+                    if (autos >= 3) return [5, 9];
+                    return [8, 12];
+                };
+
+                const update = () => {
+                    const hasDest = (DOMElements.destinationInput.value || '').trim().length > 0;
+                    const hasPickup = (DOMElements.pickupInput.value || '').trim().length > 0;
+                    const base = (hasDest && hasPickup) ? 7 : (hasDest || hasPickup) ? 5 : 4;
+                    const jitter = Math.floor(Math.random() * 5) - 2;
+                    const autos = Math.max(1, base + jitter + Math.floor(Math.random() * 3));
+                    const [minEta, maxEta] = predictEta(autos);
+
+                    autosEl.textContent = autos.toString();
+                    etaEl.textContent = `${minEta}-${maxEta} min`;
+                };
+                update();
+                setInterval(update, 15000);
+                DOMElements.destinationInput.addEventListener('input', update);
+                DOMElements.pickupInput.addEventListener('input', update);
+                document.querySelectorAll('.quick-dest-btn').forEach(btn => btn.addEventListener('click', update));
+                DOMElements.findRideBtn.addEventListener('click', () => {
+                    autosEl.textContent = (parseInt(autosEl.textContent || '5', 10) + 1).toString();
+                    etaEl.textContent = '2-4 min';
+                });
+            };
+            
+            const setupTheatresModal = () => {
+                const theatresModalBackdrop = document.getElementById('theatres-modal-backdrop');
+                const theatresList = document.getElementById('theatres-list');
+                const theatres = [
+                    'PVR: Pasuparthy Fun Square', 
+                    'INOX: PSR Mall', 
+                    'Asian C V R Movie Land',
+                    'Sandhya Theatre 70MM', 
+                    'Srinivasa Theatre', 
+                    'Pratap Theatre',
+                    'Mahati Auditorium'
+                ];
+                theatresList.innerHTML = theatres.map(hall => `<button class="w-full text-left bg-gray-800 hover:bg-gray-700/80 text-slate-300 font-medium p-4 rounded-lg transition-all">${hall}</button>`).join('');
+                
+                const toggleTheatresModal = (visible) => theatresModalBackdrop.classList.toggle('visible', visible);
+                
+                document.getElementById('theatres-btn').addEventListener('click', (e) => { e.preventDefault(); toggleTheatresModal(true); });
+                document.getElementById('close-theatres-btn').addEventListener('click', () => toggleTheatresModal(false));
+                theatresModalBackdrop.addEventListener('click', (e) => { if (e.target === theatresModalBackdrop) toggleTheatresModal(false); });
+                
+                theatresList.querySelectorAll('button').forEach(button => {
+                    button.addEventListener('click', () => {
+                        DOMElements.destinationInput.value = button.textContent.trim();
+                        DOMElements.destinationInput.dispatchEvent(new Event('input', { bubbles: true }));
+                        toggleTheatresModal(false);
+                    });
+                });
+            };
+
+            const setupTemplesModal = () => {
+                const templesModalBackdrop = document.getElementById('temples-modal-backdrop');
+                const templesList = document.getElementById('temples-list');
+                const temples = [
+                    'Sri Venkateswara Temple (Tirumala)',
+                    'Sri Padmavathi Ammavari Temple',
+                    'Sri Govindaraja Swamy Temple',
+                    'Sri Kapileswara Swamy Temple',
+                    'Sri Kalyana Venkateswara Swamy Temple',
+                    'Kodandarama Swamy Temple',
+                    'ISKCON Tirupati',
+                    'Srinivasa Mangapuram',
+                    'Akasaganga Teertham',
+                    'Papavinasam Theertham',
+                    'Silathoranam'
+                ];
+                templesList.innerHTML = temples.map(temple => `<button class="w-full text-left bg-gray-800 hover:bg-gray-700/80 text-slate-300 font-medium p-4 rounded-lg transition-all">${temple}</button>`).join('');
+                
+                const toggleTemplesModal = (visible) => templesModalBackdrop.classList.toggle('visible', visible);
+                
+                document.getElementById('temples-btn').addEventListener('click', (e) => { e.preventDefault(); toggleTemplesModal(true); });
+                document.getElementById('close-temples-btn').addEventListener('click', () => toggleTemplesModal(false));
+                templesModalBackdrop.addEventListener('click', (e) => { if (e.target === templesModalBackdrop) toggleTemplesModal(false); });
+                
+                templesList.querySelectorAll('button').forEach(button => {
+                    button.addEventListener('click', () => {
+                        DOMElements.destinationInput.value = button.textContent.trim();
+                        DOMElements.destinationInput.dispatchEvent(new Event('input', { bubbles: true }));
+                        toggleTemplesModal(false);
+                    });
+                });
+            };
+
+            const getSmartFareEstimate = (pickup, destination) => {
+                const loadingEl = document.getElementById('fare-details-loading');
+                const contentEl = document.getElementById('fare-details-content');
+                const fareEl = document.getElementById('confirm-fare');
+                const justificationEl = document.getElementById('confirm-fare-justification');
+                const etaEl = document.getElementById('confirm-eta');
+
+                loadingEl.classList.remove('hidden');
+                contentEl.classList.add('hidden');
+
+                const distanceService = new google.maps.DistanceMatrixService();
+                distanceService.getDistanceMatrix({
+                    origins: [pickup],
+                    destinations: [destination],
+                    travelMode: 'DRIVING',
+                }, (response, status) => {
+                    if (status === 'OK' && response.rows[0].elements[0].status === 'OK') {
+                        const distanceText = response.rows[0].elements[0].distance.text;
+                        const distanceValue = response.rows[0].elements[0].distance.value / 1000; // in km
+                        const durationText = response.rows[0].elements[0].duration.text;
+                        
+                        const fare = Math.max(20, Math.round(distanceValue * 12));
+                        fareEl.textContent = `\u20B9${fare}`;
+                        etaEl.textContent = durationText;
+                        justificationEl.textContent = `Based on ~${distanceText} distance.`;
+                        
+                    } else {
+                        fareEl.textContent = '\u2014';
+                        etaEl.textContent = '\u2014';
+                        justificationEl.textContent = 'Could not calculate fare.';
+                    }
+                    loadingEl.classList.add('hidden');
+                    contentEl.classList.remove('hidden');
+                });
+            };
+
+            const displayConfirmationMap = (pickup, destination) => {
+                const mapContainer = document.getElementById('confirmation-map');
+                if (!mapContainer) return;
+
+                mapContainer.innerHTML = ''; // Clear previous map content
+
+                const directionsService = new google.maps.DirectionsService();
+                const directionsRenderer = new google.maps.DirectionsRenderer({
+                    suppressMarkers: true,
+                    polylineOptions: {
+                        strokeColor: '#FBBF24',
+                        strokeWeight: 5,
+                        strokeOpacity: 0.8
+                    }
+                });
+
+                const mapOptions = {
+                    zoom: 12,
+                    center: { lat: 13.6288, lng: 79.4194 }, // Center of Tirupati
+                    disableDefaultUI: true,
+                    styles: [
+                        { elementType: "geometry", stylers: [{ color: "#242f3e" }] },
+                        { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
+                        { elementType: "labels.text.fill", stylers: [{ color: "#746855" }] },
+                        { featureType: "administrative.locality", elementType: "labels.text.fill", stylers: [{ color: "#d59563" }] },
+                        { featureType: "poi", elementType: "labels.text.fill", stylers: [{ color: "#d59563" }] },
+                        { featureType: "poi.park", elementType: "geometry", stylers: [{ color: "#263c3f" }] },
+                        { featureType: "poi.park", elementType: "labels.text.fill", stylers: [{ color: "#6b9a76" }] },
+                        { featureType: "road", elementType: "geometry", stylers: [{ color: "#38414e" }] },
+                        { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#212a37" }] },
+                        { featureType: "road", elementType: "labels.text.fill", stylers: [{ color: "#9ca5b3" }] },
+                        { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#746855" }] },
+                        { featureType: "road.highway", elementType: "geometry.stroke", stylers: [{ color: "#1f2835" }] },
+                        { featureType: "road.highway", elementType: "labels.text.fill", stylers: [{ color: "#f3d19c" }] },
+                        { featureType: "transit", elementType: "geometry", stylers: [{ color: "#2f3948" }] },
+                        { featureType: "transit.station", elementType: "labels.text.fill", stylers: [{ color: "#d59563" }] },
+                        { featureType: "water", elementType: "geometry", stylers: [{ color: "#17263c" }] },
+                        { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#515c6d" }] },
+                        { featureType: "water", elementType: "labels.text.stroke", stylers: [{ color: "#17263c" }] },
+                    ]
+                };
+
+                const map = new google.maps.Map(mapContainer, mapOptions);
+                directionsRenderer.setMap(map);
+
+                const request = {
+                    origin: pickup,
+                    destination: destination,
+                    travelMode: 'DRIVING'
+                };
+
+                directionsService.route(request, (result, status) => {
+                    if (status === 'OK') {
+                        directionsRenderer.setDirections(result);
+                    } else {
+                        mapContainer.innerHTML = `<div class="flex items-center justify-center h-full text-slate-400 p-4 text-center">Could not display map directions. Please ensure locations are valid.</div>`;
+                        console.error('Directions request failed due to ' + status);
+                    }
+                });
+            };
+            
+            const setupBookingConfirmation = () => {
+                const toggleBookingModal = (visible) => DOMElements.bookingModalBackdrop.classList.toggle('visible', visible);
+
+                DOMElements.findRideBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const destination = DOMElements.destinationInput.value;
+                    const pickup = DOMElements.pickupInput.value;
+                    if (pickup && destination) {
+                        document.getElementById('confirm-pickup').textContent = pickup;
+                        document.getElementById('confirm-destination').textContent = destination;
+                        toggleBookingModal(true);
+                        displayConfirmationMap(pickup, destination);
+                        getSmartFareEstimate(pickup, destination);
+                    } else {
+                        showNotification("Please enter both pickup and destination.");
+                    }
+                });
+
+                document.getElementById('cancel-booking-btn').addEventListener('click', () => toggleBookingModal(false));
+                DOMElements.bookingModalBackdrop.addEventListener('click', (e) => { if (e.target === DOMElements.bookingModalBackdrop) toggleBookingModal(false); });
+                document.getElementById('confirm-booking-btn').addEventListener('click', () => {
+                    window.location.href = 'select_ride.html';
+                });
+            };
+
+            const setupOutingPlanner = () => {
+                const modalBackdrop = document.getElementById('outing-planner-modal-backdrop');
+                const getSuggestionBtn = document.getElementById('get-outing-suggestion-btn');
+                const resultEl = document.getElementById('outing-result');
+                const loadingEl = document.getElementById('outing-result-loading');
+                const prompts = [
+                    "Suggest a good place for dinner tonight",
+                    "What are the showtimes for the latest movie?",
+                    "Find a quiet place to study off-campus",
+                    "Best places for street food in Tirupati",
+                ];
+                let promptIndex = 0;
+                DOMElements.outingPrompt.placeholder = prompts[promptIndex];
+                
+                DOMElements.outingPrompt.addEventListener('focus', () => {
+                    promptIndex = (promptIndex + 1) % prompts.length;
+                    DOMElements.outingPrompt.placeholder = prompts[promptIndex];
+                });
+
+                const toggleModal = (visible) => modalBackdrop.classList.toggle('visible', visible);
+
+                document.getElementById('plan-outing-btn').addEventListener('click', () => toggleModal(true));
+                document.getElementById('close-outing-planner-btn').addEventListener('click', () => toggleModal(false));
+                modalBackdrop.addEventListener('click', (e) => { if (e.target === modalBackdrop) toggleModal(false); });
+                
+                getSuggestionBtn.addEventListener('click', async () => {
+                    const userPrompt = DOMElements.outingPrompt.value;
+                    if (!userPrompt) {
+                        showNotification("Please enter what you're looking for.");
+                        return;
+                    }
+
+                    loadingEl.classList.remove('hidden');
+                    resultEl.classList.add('hidden');
+                    
+                    const systemPrompt = "You are an AI assistant for students at Mohan Babu University (MBU), near Tirupati. You help them plan outings. Format your response as simple HTML with bold tags for titles and lists for options. Suggest a specific place and add a 'Set as Destination' button with the destination name in a data-dest attribute. Example: <button class='set-dest-btn' data-dest='PVR Cinemas'>Set as Destination</button>.";
+                    const payload = {
+                        contents: [{ parts: [{ text: `My request is: "${userPrompt}"` }] }],
+                        systemInstruction: { parts: [{ text: systemPrompt }] }
+                    };
+
+                    try {
+                        const response = await fetch(GEMINI_API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                        if (!response.ok) throw new Error(`API Error: ${response.status}`);
+                        const result = await response.json();
+                        const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+
+                        resultEl.innerHTML = text ? text.replace(/<button/g, "<button class='mt-3 text-sm bg-amber-500/20 text-amber-300 font-semibold py-2 px-3 rounded-lg hover:bg-amber-500/30 transition-all'") : "<p>Sorry, I couldn't find anything right now.</p>";
+                    } catch (error) {
+                        resultEl.innerHTML = "<p>Sorry, an error occurred. Please try again.</p>";
+                    } finally {
+                        loadingEl.classList.add('hidden');
+                        resultEl.classList.remove('hidden');
+                    }
+                });
+
+                resultEl.addEventListener('click', (e) => {
+                    if(e.target.matches('.set-dest-btn')) {
+                        const destination = e.target.dataset.dest;
+                        if(destination) {
+                            DOMElements.destinationInput.value = destination;
+                            toggleModal(false);
+                        }
+                    }
+                });
+            };
+
+            const setupRidePools = () => {
+                const listEl = document.getElementById('ride-pools-list');
+                if (!listEl) return;
+
+                let pools = [
+                    { id: 'rail', name: 'Tirupati Railway Station', capacity: 3, count: 1, departing: false },
+                    { id: 'dmart', name: 'D-Mart', capacity: 3, count: 2, departing: false },
+                    { id: 'bus', name: 'Tirupati Bus Stand', capacity: 3, count: 0, departing: false },
+                    { id: 'temple', name: 'Tirumala Temple', capacity: 3, count: 1, departing: false },
+                ];
+                const popularDestinations = ['Kapila Theertham', 'ISKCON Temple', 'Srinivasa Mangapuram'];
+                const joined = new Set();
+                
+                const render = () => {
+                    if (!listEl) return;
+                    listEl.innerHTML = '';
+                    pools.forEach((pool, idx) => {
+                        const isFull = pool.count >= pool.capacity;
+                        const iJoined = joined.has(pool.id);
+                        const card = document.createElement('div');
+                        card.id = `pool-${pool.id}`;
+                        card.className = 'bg-gray-800/50 p-4 rounded-lg border border-gray-700/60 hover:border-amber-400/40 transition-all flex items-center justify-between';
+                        if (!pool.isNew) {
+                           card.classList.add('fade-in-up');
+                           card.style.animationDelay = `${0.05 * idx}s`;
+                        }
+                        
+                        if (pool.departing) {
+                            card.classList.add('departing');
+                        }
+
+                        const left = document.createElement('div');
+                        left.className = 'flex-grow pr-4';
+                        let waitingText = pool.departing ? `<span class="font-bold text-red-400">Departing...</span>` : `<span class="font-bold text-amber-400"><span class="count-bump" data-pool="${pool.id}">${pool.count}</span>/${pool.capacity}</span> Waiting`;
+                        
+                        left.innerHTML = `
+                            <p class="font-semibold text-slate-50 flex items-center">
+                                <i class="ph-map-pin-line text-amber-300 mr-2"></i>${pool.name}
+                            </p>
+                            <div class="mt-1 text-sm text-slate-400">
+                                ${waitingText}
+                            </div>`;
+
+                        const btn = document.createElement('button');
+                        btn.innerHTML = 'Join';
+                        let btnBaseClasses = 'flex-shrink-0 px-4 py-2 w-20 h-10 flex items-center justify-center rounded-lg font-semibold transition-all';
+                        
+                        const setBtnState = () => {
+                            if (pool.departing) {
+                                btn.textContent = 'Departing';
+                                btn.className = `${btnBaseClasses} bg-gray-700 text-slate-400 opacity-70 cursor-not-allowed`;
+                                btn.disabled = true;
+                            } else if (iJoined) {
+                                btn.textContent = 'Leave';
+                                btn.className = `${btnBaseClasses} bg-red-600 hover:bg-red-500 text-white`;
+                                btn.disabled = false;
+                            } else if (isFull) {
+                                btn.textContent = 'Full';
+                                btn.className = `${btnBaseClasses} bg-gray-700 text-slate-400 opacity-70 cursor-not-allowed`;
+                                btn.disabled = true;
+                            } else {
+                                btn.textContent = 'Join';
+                                btn.className = `${btnBaseClasses} bg-gray-700 hover:bg-gray-600 text-slate-200`;
+                                btn.disabled = false;
+                            }
+                        };
+                        setBtnState();
+
+                        btn.addEventListener('click', () => {
+                            btn.innerHTML = `<div class="btn-spinner"></div>`;
+                            btn.disabled = true;
+                            
+                            setTimeout(() => {
+                                if (joined.has(pool.id)) {
+                                    joined.delete(pool.id);
+                                    pool.count = Math.max(0, pool.count - 1);
+                                } else if (pool.count < pool.capacity) {
+                                    joined.add(pool.id);
+                                    pool.count += 1;
+                                }
+                                render();
+                            }, 300);
+                        });
+
+                        card.appendChild(left);
+                        card.appendChild(btn);
+                        listEl.appendChild(card);
+                        if (pool.isNew) {
+                           setTimeout(() => card.classList.add('fade-in-up'), 10);
+                           pool.isNew = false;
+                        }
+                    });
+                };
+
+                const createPoolModalBackdrop = document.getElementById('create-pool-modal-backdrop');
+                if (createPoolModalBackdrop) {
+                    const toggleCreatePoolModal = (visible) => createPoolModalBackdrop.classList.toggle('visible', visible);
+
+                    document.getElementById('create-pool-btn').addEventListener('click', () => toggleCreatePoolModal(true));
+                    document.getElementById('close-create-pool-btn').addEventListener('click', () => toggleCreatePoolModal(false));
+                    createPoolModalBackdrop.addEventListener('click', (e) => { if (e.target === createPoolModalBackdrop) toggleCreatePoolModal(false); });
+
+                    document.getElementById('confirm-create-pool-btn').addEventListener('click', () => {
+                        const newDestInput = document.getElementById('new-pool-destination-input');
+                        const newDestination = newDestInput.value.trim();
+
+                        if (newDestination && !pools.find(p => p.name.toLowerCase() === newDestination.toLowerCase())) {
+                            const newPoolId = newDestination.toLowerCase().replace(/\s+/g, '') + Date.now();
+                            const newPool = { id: newPoolId, name: newDestination, capacity: 3, count: 1, departing: false, isNew: true };
+                            pools.unshift(newPool);
+                            joined.add(newPoolId);
+                            render();
+                            newDestInput.value = '';
+                            toggleCreatePoolModal(false);
+                        } else if (newDestination) {
+                             showNotification("A pool for this destination already exists.");
+                        }
+                    });
+                }
+                
+                render(); 
+
+                setInterval(() => {
+                    const fullPool = pools.find(p => p.count >= p.capacity && !p.departing);
+                    if (fullPool) {
+                        fullPool.departing = true;
+                        const cardEl = document.getElementById(`pool-${fullPool.id}`);
+                        if (cardEl) cardEl.classList.add('fade-out-down');
+
+                        setTimeout(() => {
+                            pools = pools.filter(p => p.id !== fullPool.id);
+                            if (joined.has(fullPool.id)) joined.delete(fullPool.id);
+                            render();
+                        }, 600);
+                    }
+
+                    const availablePools = pools.filter(p => p.count < p.capacity && !p.departing);
+                    if (availablePools.length > 0 && Math.random() < 0.25) { // Slower join rate
+                        const poolToUpdate = availablePools[Math.floor(Math.random() * availablePools.length)];
+                        poolToUpdate.count++;
+                    }
+                    
+                    if (Math.random() < 0.1 && popularDestinations.length > 0 && pools.length < 6) {
+                        const newDest = popularDestinations.shift();
+                        if (newDest && !pools.find(p => p.name === newDest)) {
+                            const newId = newDest.toLowerCase().replace(/\s+/g, '') + Date.now();
+                            pools.push({id: newId, name: newDest, capacity: 3, count: 0, departing: false, isNew: true});
+                        }
+                    }
+
+                    render();
+                }, 3000); // Slower interval
+            };
+
+            // --- Initialize All Features ---
+            setGreeting();
+            setupDashboard();
+            setupTheatresModal();
+            setupTemplesModal();
+            setupBookingConfirmation();
+            setupOutingPlanner();
+            setupRidePools();
+            setupAvailability();
+        });
+    </script>
+</body>
+</html>
+
+
